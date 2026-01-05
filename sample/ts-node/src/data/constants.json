@@ -1,0 +1,17 @@
+{
+  "keyPairHolder": {
+    "seed": "H297BpoOgkfpXcxr1fJyQRiNx1+ZekeQ+OU/AYV/lVxaPXXhFBIbxeIU8kIAAX68cwQ=",
+    "publicKey": "pQro1uqpvUPM31sr+jHffz7+KJIpA3kFen4SoKATURRgo7pk582aaqIxSinWsgHDB9j9dwxYRbC3q2ZmICR2OVMX3FHW9LZV2QAauTYFn7gEra1BSeKhdKDpzBxPjI36",
+    "secretKey": "Cm550dHeqo5I/dVC/bXD9s5Cx8vnyhV/gm7KO5UuviE="
+  },
+  "keyPairIssuer": {
+    "publicKey": "pmAw/bhi6nUByLX9YMyg/7hDfbwL5sRQQqu0HbsOGswqx3jyJL/BIYUF1eSy7Wn1AYttp2qv25MhgfCJYjcpOnzGDB8WChm//IYwBhnTfjEoEhbtwFsR/0JQ29/xWjDE",
+    "secretKey": "D0hwDqCtQvjbZH/w9Tdo/p4YOo/kC+eY5ZtpiWGGboA="
+  },
+  "outcome": {
+    "pass": "✔️",
+    "fail": "❌"
+  },
+  "messages": ["bWVzc2FnZTE", "bWVzc2FnZTI", "bWVzc2FnZTM"],
+  "nonce": "GO2tjL/F78iFdngqi/MMSj8jpBRppOk6AFiY8Wcn5UE="
+}

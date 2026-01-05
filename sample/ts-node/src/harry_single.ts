@@ -11,6 +11,7 @@
  * limitations under the License.
  */
 
+import { Buffer } from "buffer";
 import {
   Bls12381G2KeyPair,
   BbsBlsSignature2020,
@@ -18,6 +19,7 @@ import {
   deriveProof,
 } from "@mattrglobal/jsonld-signatures-bbs";
 import { extendContextLoader, sign, verify, purposes } from "jsonld-signatures";
+import constants from "./data/constants.json";
 
 import inputDocument from "./data/inputDocument.json";
 import keyPairOptions from "./data/keyPair.json";
@@ -66,7 +68,14 @@ const main = async (): Promise<void> => {
   //Import the example key pair
   const keyPair = await new Bls12381G2KeyPair(keyPairOptions);
   let suite = new BbsBlsSignature2020({ key: keyPair });
-  console.log("suite", suite);
+  let messages = constants["messages"].map((x) => Buffer.from(x, "base64"));
+
+  let signed = await suite.sign({
+    verifyData: messages,
+    document: null,
+    proof: {},
+  });
+  console.log("suite", signed);
 
   // console.log("Input document");
   // console.log(JSON.stringify(inputDocument, null, 2));

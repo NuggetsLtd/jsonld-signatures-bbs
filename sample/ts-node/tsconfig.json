@@ -12,7 +12,8 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "outDir": "./lib",
-    "typeRoots": ["./src/types"]
+    "typeRoots": ["./src/types"],
+    "types": ["node"]
   },
   "include": ["./src", "index.d.ts"]
 }
