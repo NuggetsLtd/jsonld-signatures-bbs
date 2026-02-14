@@ -1,15 +1,5 @@
-/*
- * Copyright 2020 - MATTR Limited
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *     http://www.apache.org/licenses/LICENSE-2.0
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// run
+// npm run harry
 
 import { Buffer } from "buffer";
 import {
@@ -70,21 +60,28 @@ const main = async (): Promise<void> => {
   let suite = new BbsBlsSignature2020({ key: keyPair });
   let messages = constants["messages"].map((x) => Buffer.from(x, "base64"));
 
-  let signed = await suite.sign({
+  let signed: any = await suite.sign({
     verifyData: messages,
     document: null,
     proof: {},
   });
-  console.log("suite", signed);
+
+  let verified = await suite.verifySignature({
+    verifyData: messages,
+    proof: signed,
+    document: null,
+    verificationMethod: null,
+  });
+  console.log(verified);
 
   // console.log("Input document");
   // console.log(JSON.stringify(inputDocument, null, 2));
 
   //Sign the input document
   // const signedDocument = await sign(inputDocument, {
-  //   suite: new BbsBlsSignature2020({ key: keyPair }),
-  //   purpose: new purposes.AssertionProofPurpose(),
-  //   documentLoader,
+  //     suite: new BbsBlsSignature2020({ key: keyPair }),
+  //     purpose: new purposes.AssertionProofPurpose(),
+  //     documentLoader,
   // });
 
   // console.log("Input document with proof");
