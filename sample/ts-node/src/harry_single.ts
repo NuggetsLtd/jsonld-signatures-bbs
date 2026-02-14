@@ -20,6 +20,8 @@ import citizenVocab from "./data/citizenVocab.json";
 import credentialContext from "./data/credentialsContext.json";
 import suiteContext from "./data/suiteContext.json";
 
+import * as jsonld from "jsonld";
+
 /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
 const documents: any = {
   "did:example:489398593#test": keyPairOptions,
@@ -54,36 +56,46 @@ const customDocLoader = (url: string): any => {
 /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
 const documentLoader: any = extendContextLoader(customDocLoader);
 
-const main = async (): Promise<void> => {
+const create_verify_data = async (): Promise<void> => {
+  const keyPair = await new Bls12381G2KeyPair(keyPairOptions);
+  let suite = new BbsBlsSignature2020({ key: keyPair });
+  let messages = constants["messages"].map((x) => Buffer.from(x, "base64"));
+
+  console.log("Input document");
+  console.log(JSON.stringify(inputDocument, null, 2));
+
+  let verify_data = await suite.createVerifyDocumentData(inputDocument, {
+    documentLoader,
+  });
+  console.log(verify_data);
+};
+
+const canonize = async (): Promise<void> => {
   //Import the example key pair
   const keyPair = await new Bls12381G2KeyPair(keyPairOptions);
   let suite = new BbsBlsSignature2020({ key: keyPair });
   let messages = constants["messages"].map((x) => Buffer.from(x, "base64"));
 
-  let signed: any = await suite.sign({
-    verifyData: messages,
-    document: null,
-    proof: {},
-  });
+  console.log("Input document");
+  console.log(JSON.stringify(inputDocument, null, 2));
+  //
+  let c = await suite.canonize(inputDocument, { documentLoader });
+  //
+  console.log("canonized document");
+  console.log(c);
+};
 
-  let verified = await suite.verifySignature({
-    verifyData: messages,
-    proof: signed,
-    document: null,
-    verificationMethod: null,
-  });
-  console.log(verified);
-
-  // console.log("Input document");
-  // console.log(JSON.stringify(inputDocument, null, 2));
-
+const main = async (): Promise<void> => {
+  // create_verify_data()
+  //
+  // let expanded = await jsonld.expand(inputDocument, { documentLoader });
+  // console.log(JSON.stringify(expanded, null,));
   //Sign the input document
   // const signedDocument = await sign(inputDocument, {
   //     suite: new BbsBlsSignature2020({ key: keyPair }),
   //     purpose: new purposes.AssertionProofPurpose(),
   //     documentLoader,
   // });
-
   // console.log("Input document with proof");
   // console.log(JSON.stringify(signedDocument, null, 2));
   //
