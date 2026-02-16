@@ -85,37 +85,40 @@ const canonize = async (): Promise<void> => {
     console.log(c);
 };
 
+const get = async (): Promise<void> => {
+    console.log("get");
+    let result = await jsonld.get("https://w3id.org/security/bbs/v1", { documentLoader })
+    console.log(JSON.stringify(result, null, 2))
+
+    let expected = bbsContext
+    console.log(JSON.stringify(expected, null, 2))
+
+    console.log(result["document"] == expected)
+}
+
+const expand = async (): Promise<void> => {
+    console.log("expanded input doc");
+    let expanded = await jsonld.expand(inputDocument, { documentLoader });
+    console.log(JSON.stringify(expanded, null, 2));
+}
+
 const main = async (): Promise<void> => {
-    // create_verify_data()
-    //
+    await expand()
     //Sign the input document
-    const keyPair = await new Bls12381G2KeyPair(keyPairOptions);
-    let suite = new BbsBlsSignature2020({ key: keyPair });
-    const signedDocument = await sign(inputDocument, {
-        suite,
-        purpose: new purposes.AssertionProofPurpose(),
-        documentLoader,
-    });
-    console.log("Input document with proof");
-    console.log(JSON.stringify(signedDocument, null, 2));
-    let with_ctx = {
-        "@context": [
-            "https://www.w3.org/2018/credentials/v1",
-            "https://w3id.org/citizenship/v1",
-            "https://w3id.org/security/bbs/v1"
-        ],
-        "type": "BbsBlsSignature2020",
-        "created": "2026-02-14T23:37:37Z",
-        "proofPurpose": "assertionMethod",
-        "verificationMethod": "did:example:489398593#test"
-    }
+    // const keyPair = await new Bls12381G2KeyPair(keyPairOptions);
+    // let suite = new BbsBlsSignature2020({ key: keyPair });
+    // const signedDocument = await sign(inputDocument, {
+    //     suite,
+    //     purpose: new purposes.AssertionProofPurpose(),
+    //     documentLoader,
+    // });
+    // console.log("Input document with proof");
+    // console.log(JSON.stringify(signedDocument, null, 2));
     // let x = await suite.createVerifyProofData(with_ctx, { documentLoader })
     //
     // console.log("proofdata");
     // console.log(JSON.stringify(x, null, 2));
 
-    let expanded = await jsonld.expand(with_ctx, { documentLoader });
-    console.log(JSON.stringify(expanded, null, 2));
     //
     // //Verify the proof
     // let verified = await verify(signedDocument, {
