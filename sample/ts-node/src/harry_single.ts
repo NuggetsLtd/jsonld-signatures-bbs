@@ -102,51 +102,126 @@ const expand = async (): Promise<void> => {
     console.log(JSON.stringify(expanded, null, 2));
 }
 
-const main = async (): Promise<void> => {
-    await expand()
-    //Sign the input document
-    // const keyPair = await new Bls12381G2KeyPair(keyPairOptions);
-    // let suite = new BbsBlsSignature2020({ key: keyPair });
-    // const signedDocument = await sign(inputDocument, {
-    //     suite,
-    //     purpose: new purposes.AssertionProofPurpose(),
-    //     documentLoader,
-    // });
-    // console.log("Input document with proof");
-    // console.log(JSON.stringify(signedDocument, null, 2));
-    // let x = await suite.createVerifyProofData(with_ctx, { documentLoader })
-    //
-    // console.log("proofdata");
-    // console.log(JSON.stringify(x, null, 2));
+const toRdf = async (): Promise<void> => {
+    console.log("toRDF dataset (raw):");
+    let dataset = await jsonld.toRDF(inputDocument, { documentLoader });
+    console.log(JSON.stringify(dataset, null, 2));
 
-    //
-    // //Verify the proof
-    // let verified = await verify(signedDocument, {
-    //   suite: new BbsBlsSignature2020(),
-    //   purpose: new purposes.AssertionProofPurpose(),
-    //   documentLoader,
-    // });
-    //
-    // console.log("Verification result");
-    // console.log(JSON.stringify(verified, null, 2));
-    //
-    // //Derive a proof
-    // const derivedProof = await deriveProof(signedDocument, revealDocument, {
-    //   suite: new BbsBlsSignatureProof2020(),
-    //   documentLoader,
-    // });
-    //
-    // console.log(JSON.stringify(derivedProof, null, 2));
-    //
-    // //Verify the derived proof
-    // verified = await verify(derivedProof, {
-    //   suite: new BbsBlsSignatureProof2020(),
-    //   purpose: new purposes.AssertionProofPurpose(),
-    //   documentLoader,
-    // });
-    //
-    // console.log("Verification result");
-    // console.log(JSON.stringify(verified, null, 2));
+    console.log("\ntoRDF n-quads:");
+    let nquads = await jsonld.toRDF(inputDocument, { documentLoader, format: "application/n-quads" });
+    console.log(nquads);
+}
+
+const canonize_proof_and_verify_proof_data = async (): Promise<void> => {
+    const keyPair = await new Bls12381G2KeyPair(keyPairOptions);
+    let suite = new BbsBlsSignature2020({ key: keyPair });
+
+    // Same proof as Rust test_canonize_proof / test_create_verify_proof_data
+    const proof = {
+        "@context": [
+            "https://www.w3.org/2018/credentials/v1",
+            "https://w3id.org/citizenship/v1",
+            "https://w3id.org/security/bbs/v1"
+        ],
+        "type": "BbsBlsSignature2020",
+        "created": "2026-02-14T23:50:05Z",
+        "proofPurpose": "assertionMethod",
+        "proofValue": "ju+gk1jtkQpl+1Xx8pLkk1qG1S48Y/8/m7LmGy9OfHDWz7CQoBcrkxVUfE+2z5qsYUHlKfzccE4m7waZyoLEkBLFiK2g54Q2i+CdtYBgDdkUDsoULSBMcH1MwGHwdjfXpldFNFrHFx/IAvLVniyeMQ==",
+        "verificationMethod": "did:example:489398593#test"
+    };
+
+    console.log("=== canonizeProof ===");
+    let canonized = await suite.canonizeProof(proof, { documentLoader });
+    console.log(JSON.stringify(canonized));
+
+    console.log("\n=== createVerifyProofData ===");
+    let proofData = await suite.createVerifyProofData(proof, { documentLoader });
+    console.log(JSON.stringify(proofData));
+};
+
+const sign_and_verify = async (): Promise<void> => {
+    const keyPair = await new Bls12381G2KeyPair(keyPairOptions);
+    const suite = new BbsBlsSignature2020({ key: keyPair });
+
+    console.log("=== SIGN ===");
+    const signedDocument = await sign(inputDocument, {
+        suite,
+        purpose: new purposes.AssertionProofPurpose(),
+        documentLoader,
+    });
+    console.log("Signed document:");
+    console.log(JSON.stringify(signedDocument, null, 2));
+
+    // Inspect the proof structure
+    const proof = signedDocument.proof;
+    console.log("\n=== PROOF DETAILS ===");
+    console.log("proof.type:", proof.type);
+    console.log("proof.proofPurpose:", proof.proofPurpose);
+    console.log("proof.verificationMethod:", proof.verificationMethod);
+    console.log("proof.created:", proof.created);
+    console.log("proof.proofValue length:", proof.proofValue?.length);
+    console.log("proof keys:", Object.keys(proof));
+
+    // Get createVerifyData with the CORRECT inputs (doc without proof)
+    console.log("\n=== CREATE VERIFY DATA (doc without proof) ===");
+    const { proof: _p, ...docWithoutProof } = signedDocument;
+    const verifyData: any = await (suite as any).createVerifyData({
+        document: docWithoutProof,
+        proof: proof,
+        documentLoader,
+        compactProof: false,
+    });
+    console.log("verifyData type:", typeof verifyData);
+    console.log("verifyData length:", Array.isArray(verifyData) ? verifyData.length : "N/A");
+    console.log("verifyData:", JSON.stringify(verifyData, null, 2));
+
+    // Also get the separate proof/document data
+    console.log("\n=== SEPARATE PROOF + DOCUMENT DATA ===");
+    const proofData = await (suite as any).createVerifyProofData(proof, { documentLoader });
+    const docData = await (suite as any).createVerifyDocumentData(docWithoutProof, { documentLoader });
+    console.log("proofData (from signed doc proof, no @context):", JSON.stringify(proofData));
+    console.log("proofData.length:", proofData.length);
+    console.log("docData.length:", docData.length);
+
+    // Now test with a proof that HAS @context (like during the sign flow)
+    const proofWithContext = {
+        ...proof,
+        "@context": [
+            { sec: "https://w3id.org/security#", proof: { "@id": "sec:proof", "@type": "@id", "@container": "@graph" } },
+            "https://w3id.org/security/bbs/v1"
+        ]
+    };
+    const proofDataWithCtx = await (suite as any).createVerifyProofData(proofWithContext, { documentLoader });
+    console.log("proofData (with @context):", JSON.stringify(proofDataWithCtx));
+    console.log("proofData.length (with @context):", proofDataWithCtx.length);
+
+    // What does createVerifyData return when proof has @context?
+    const verifyDataWithCtx: any = await (suite as any).createVerifyData({
+        document: docWithoutProof,
+        proof: proofWithContext,
+        documentLoader,
+        compactProof: false,
+    });
+    console.log("\nverifyData (with proof @context) length:", verifyDataWithCtx.length);
+    if (typeof verifyDataWithCtx === 'object' && verifyDataWithCtx.proof) {
+        console.log("verifyData.proof:", JSON.stringify(verifyDataWithCtx.proof));
+        console.log("verifyData.document length:", verifyDataWithCtx.document?.length);
+    } else {
+        console.log("verifyData (flat):", JSON.stringify(verifyDataWithCtx));
+    }
+
+    console.log("\n=== VERIFY ===");
+    const verified = await verify(signedDocument, {
+        suite: new BbsBlsSignature2020(),
+        purpose: new purposes.AssertionProofPurpose(),
+        documentLoader,
+    });
+    console.log("Verification result:");
+    console.log(JSON.stringify(verified, null, 2));
+};
+
+const main = async (): Promise<void> => {
+    await sign_and_verify();
 };
 
 main();
