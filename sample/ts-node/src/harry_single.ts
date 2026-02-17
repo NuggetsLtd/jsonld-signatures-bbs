@@ -56,172 +56,135 @@ const customDocLoader = (url: string): any => {
 /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
 const documentLoader: any = extendContextLoader(customDocLoader);
 
-const create_verify_data = async (): Promise<void> => {
-    const keyPair = await new Bls12381G2KeyPair(keyPairOptions);
-    let suite = new BbsBlsSignature2020({ key: keyPair });
-    let messages = constants["messages"].map((x) => Buffer.from(x, "base64"));
+/**
+ * Cross-verification: Sign with JS reference library.
+ * Log output for comparison with NAPI `node test.mjs` output.
+ */
+const cross_verify_sign = async (): Promise<void> => {
+    console.log("=== CROSS-VERIFY: SIGN ===\n");
 
-    console.log("Input document");
-    console.log(JSON.stringify(inputDocument, null, 2));
-
-    let verify_data = await suite.createVerifyDocumentData(inputDocument, {
-        documentLoader,
-    });
-    console.log(verify_data);
-};
-
-const canonize = async (): Promise<void> => {
-    //Import the example key pair
-    const keyPair = await new Bls12381G2KeyPair(keyPairOptions);
-    let suite = new BbsBlsSignature2020({ key: keyPair });
-    let messages = constants["messages"].map((x) => Buffer.from(x, "base64"));
-
-    console.log("Input document");
-    console.log(JSON.stringify(inputDocument, null, 2));
-    //
-    let c = await suite.canonize(inputDocument, { documentLoader });
-    //
-    console.log("canonized document");
-    console.log(c);
-};
-
-const get = async (): Promise<void> => {
-    console.log("get");
-    let result = await jsonld.get("https://w3id.org/security/bbs/v1", { documentLoader })
-    console.log(JSON.stringify(result, null, 2))
-
-    let expected = bbsContext
-    console.log(JSON.stringify(expected, null, 2))
-
-    console.log(result["document"] == expected)
-}
-
-const expand = async (): Promise<void> => {
-    console.log("expanded input doc");
-    let expanded = await jsonld.expand(inputDocument, { documentLoader });
-    console.log(JSON.stringify(expanded, null, 2));
-}
-
-const toRdf = async (): Promise<void> => {
-    console.log("toRDF dataset (raw):");
-    let dataset = await jsonld.toRDF(inputDocument, { documentLoader });
-    console.log(JSON.stringify(dataset, null, 2));
-
-    console.log("\ntoRDF n-quads:");
-    let nquads = await jsonld.toRDF(inputDocument, { documentLoader, format: "application/n-quads" });
-    console.log(nquads);
-}
-
-const canonize_proof_and_verify_proof_data = async (): Promise<void> => {
-    const keyPair = await new Bls12381G2KeyPair(keyPairOptions);
-    let suite = new BbsBlsSignature2020({ key: keyPair });
-
-    // Same proof as Rust test_canonize_proof / test_create_verify_proof_data
-    const proof = {
-        "@context": [
-            "https://www.w3.org/2018/credentials/v1",
-            "https://w3id.org/citizenship/v1",
-            "https://w3id.org/security/bbs/v1"
-        ],
-        "type": "BbsBlsSignature2020",
-        "created": "2026-02-14T23:50:05Z",
-        "proofPurpose": "assertionMethod",
-        "proofValue": "ju+gk1jtkQpl+1Xx8pLkk1qG1S48Y/8/m7LmGy9OfHDWz7CQoBcrkxVUfE+2z5qsYUHlKfzccE4m7waZyoLEkBLFiK2g54Q2i+CdtYBgDdkUDsoULSBMcH1MwGHwdjfXpldFNFrHFx/IAvLVniyeMQ==",
-        "verificationMethod": "did:example:489398593#test"
-    };
-
-    console.log("=== canonizeProof ===");
-    let canonized = await suite.canonizeProof(proof, { documentLoader });
-    console.log(JSON.stringify(canonized));
-
-    console.log("\n=== createVerifyProofData ===");
-    let proofData = await suite.createVerifyProofData(proof, { documentLoader });
-    console.log(JSON.stringify(proofData));
-};
-
-const sign_and_verify = async (): Promise<void> => {
     const keyPair = await new Bls12381G2KeyPair(keyPairOptions);
     const suite = new BbsBlsSignature2020({ key: keyPair });
 
-    console.log("=== SIGN ===");
     const signedDocument = await sign(inputDocument, {
         suite,
         purpose: new purposes.AssertionProofPurpose(),
         documentLoader,
     });
-    console.log("Signed document:");
-    console.log(JSON.stringify(signedDocument, null, 2));
 
-    // Inspect the proof structure
-    const proof = signedDocument.proof;
-    console.log("\n=== PROOF DETAILS ===");
-    console.log("proof.type:", proof.type);
-    console.log("proof.proofPurpose:", proof.proofPurpose);
-    console.log("proof.verificationMethod:", proof.verificationMethod);
-    console.log("proof.created:", proof.created);
-    console.log("proof.proofValue length:", proof.proofValue?.length);
-    console.log("proof keys:", Object.keys(proof));
+    console.log("JS Reference — Signed document proof:");
+    console.log(JSON.stringify(signedDocument.proof, null, 2));
 
-    // Get createVerifyData with the CORRECT inputs (doc without proof)
-    console.log("\n=== CREATE VERIFY DATA (doc without proof) ===");
-    const { proof: _p, ...docWithoutProof } = signedDocument;
-    const verifyData: any = await (suite as any).createVerifyData({
-        document: docWithoutProof,
-        proof: proof,
-        documentLoader,
-        compactProof: false,
-    });
-    console.log("verifyData type:", typeof verifyData);
-    console.log("verifyData length:", Array.isArray(verifyData) ? verifyData.length : "N/A");
-    console.log("verifyData:", JSON.stringify(verifyData, null, 2));
-
-    // Also get the separate proof/document data
-    console.log("\n=== SEPARATE PROOF + DOCUMENT DATA ===");
-    const proofData = await (suite as any).createVerifyProofData(proof, { documentLoader });
-    const docData = await (suite as any).createVerifyDocumentData(docWithoutProof, { documentLoader });
-    console.log("proofData (from signed doc proof, no @context):", JSON.stringify(proofData));
-    console.log("proofData.length:", proofData.length);
-    console.log("docData.length:", docData.length);
-
-    // Now test with a proof that HAS @context (like during the sign flow)
-    const proofWithContext = {
-        ...proof,
-        "@context": [
-            { sec: "https://w3id.org/security#", proof: { "@id": "sec:proof", "@type": "@id", "@container": "@graph" } },
-            "https://w3id.org/security/bbs/v1"
-        ]
-    };
-    const proofDataWithCtx = await (suite as any).createVerifyProofData(proofWithContext, { documentLoader });
-    console.log("proofData (with @context):", JSON.stringify(proofDataWithCtx));
-    console.log("proofData.length (with @context):", proofDataWithCtx.length);
-
-    // What does createVerifyData return when proof has @context?
-    const verifyDataWithCtx: any = await (suite as any).createVerifyData({
-        document: docWithoutProof,
-        proof: proofWithContext,
-        documentLoader,
-        compactProof: false,
-    });
-    console.log("\nverifyData (with proof @context) length:", verifyDataWithCtx.length);
-    if (typeof verifyDataWithCtx === 'object' && verifyDataWithCtx.proof) {
-        console.log("verifyData.proof:", JSON.stringify(verifyDataWithCtx.proof));
-        console.log("verifyData.document length:", verifyDataWithCtx.document?.length);
-    } else {
-        console.log("verifyData (flat):", JSON.stringify(verifyDataWithCtx));
-    }
-
-    console.log("\n=== VERIFY ===");
-    const verified = await verify(signedDocument, {
+    // Sanity check: verify with JS reference
+    const verifyResult = await verify(signedDocument, {
         suite: new BbsBlsSignature2020(),
         purpose: new purposes.AssertionProofPurpose(),
         documentLoader,
     });
-    console.log("Verification result:");
-    console.log(JSON.stringify(verified, null, 2));
+
+    console.log("\nJS Reference — Verify result:", verifyResult.verified);
+    if (!verifyResult.verified) {
+        console.log("Error:", JSON.stringify(verifyResult.error, null, 2));
+    }
+};
+
+/**
+ * Cross-verification: Derive selective disclosure proof with JS reference.
+ * Log output for comparison with NAPI output.
+ */
+const cross_verify_derive = async (): Promise<void> => {
+    console.log("\n=== CROSS-VERIFY: DERIVE ===\n");
+
+    const keyPair = await new Bls12381G2KeyPair(keyPairOptions);
+    const suite = new BbsBlsSignature2020({ key: keyPair });
+
+    // Sign
+    const signedDocument = await sign(inputDocument, {
+        suite,
+        purpose: new purposes.AssertionProofPurpose(),
+        documentLoader,
+    });
+
+    // Derive
+    const derivedDocument = await deriveProof(signedDocument, revealDocument, {
+        suite: new BbsBlsSignatureProof2020(),
+        documentLoader,
+    });
+
+    console.log("JS Reference — Derived document:");
+    console.log(JSON.stringify(derivedDocument, null, 2));
+
+    // Verify derived
+    const verifyResult = await verify(derivedDocument, {
+        suite: new BbsBlsSignatureProof2020(),
+        purpose: new purposes.AssertionProofPurpose(),
+        documentLoader,
+    });
+
+    console.log("\nJS Reference — Derived verify result:", verifyResult.verified);
+    if (!verifyResult.verified) {
+        console.log("Error:", JSON.stringify(verifyResult.error, null, 2));
+    }
+};
+
+/**
+ * Cross-verification: Full round-trip flow.
+ * Sign → Verify → Derive → Verify-derived, all with JS reference.
+ * Log structured output for comparison with NAPI bindings.
+ */
+const cross_verify_round_trip = async (): Promise<void> => {
+    console.log("\n=== CROSS-VERIFY: FULL ROUND TRIP ===\n");
+
+    const keyPair = await new Bls12381G2KeyPair(keyPairOptions);
+
+    // Step 1: Sign
+    const suite = new BbsBlsSignature2020({ key: keyPair });
+    const signedDocument = await sign(inputDocument, {
+        suite,
+        purpose: new purposes.AssertionProofPurpose(),
+        documentLoader,
+    });
+    console.log("Step 1 — Signed proof type:", signedDocument.proof.type);
+    console.log("Step 1 — Signed proof keys:", Object.keys(signedDocument.proof));
+
+    // Step 2: Verify
+    const verifyResult = await verify(signedDocument, {
+        suite: new BbsBlsSignature2020(),
+        purpose: new purposes.AssertionProofPurpose(),
+        documentLoader,
+    });
+    console.log("Step 2 — Verify:", verifyResult.verified);
+
+    // Step 3: Derive
+    const derivedDocument = await deriveProof(signedDocument, revealDocument, {
+        suite: new BbsBlsSignatureProof2020(),
+        documentLoader,
+    });
+    console.log("Step 3 — Derived proof type:", derivedDocument.proof.type);
+    console.log("Step 3 — Derived proof keys:", Object.keys(derivedDocument.proof));
+    console.log("Step 3 — Derived document keys:", Object.keys(derivedDocument));
+
+    // Check selective disclosure
+    const subject = derivedDocument.credentialSubject;
+    if (subject) {
+        console.log("Step 3 — credentialSubject keys:", Object.keys(subject));
+    }
+
+    // Step 4: Verify derived
+    const derivedVerifyResult = await verify(derivedDocument, {
+        suite: new BbsBlsSignatureProof2020(),
+        purpose: new purposes.AssertionProofPurpose(),
+        documentLoader,
+    });
+    console.log("Step 4 — Derived verify:", derivedVerifyResult.verified);
+
+    console.log("\n=== ROUND TRIP COMPLETE ===");
 };
 
 const main = async (): Promise<void> => {
-    await sign_and_verify();
+    await cross_verify_sign();
+    await cross_verify_derive();
+    await cross_verify_round_trip();
 };
 
 main();
